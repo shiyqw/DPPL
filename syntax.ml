@@ -50,12 +50,11 @@ type term =
   | TmIsZero of info * term
   | TmInert of info * ty
 
-type binding =
-    NameBind 
-  | TyVarBind
-  | VarBind of ty
-  | TmAbbBind of term * (ty option)
-  | TyAbbBind of ty
+type arrowty = (int*int) list
+  
+type binding = 
+  | VarBind of int
+  | ArrBind of (arrowty list)
 
 type context = (string * binding) list
 
@@ -69,7 +68,6 @@ type command =
   | While of info * expression * command
   | If of info * expression * command * command
   | CmdList of info * (command list)
-  | Eval of info * term
   | Bind of info * string * binding
 
 (* ---------------------------------------------------------------------- *)
@@ -81,7 +79,7 @@ let ctxlength ctx = List.length ctx
 
 let addbinding ctx x bind = (x,bind)::ctx
 
-let addname ctx x = addbinding ctx x NameBind
+(* let addname ctx x = addbinding ctx x NameBind 
 
 let rec isnamebound ctx x =
   match ctx with
@@ -272,7 +270,7 @@ let tmInfo t = match t with
   | TmSucc(fi,_) -> fi
   | TmPred(fi,_) -> fi
   | TmIsZero(fi,_) -> fi 
-
+ *)
 (* ---------------------------------------------------------------------- *)
 (* Printing *)
 
@@ -298,7 +296,7 @@ let small t =
   match t with
     TmVar(_,_,_) -> true
   | _ -> false
-
+(*
 let rec printty_Type outer ctx tyT = match tyT with
     TyRef(tyT) -> pr "Ref "; printty_AType false ctx tyT
   | TySource(tyT) -> pr "Source "; printty_AType false ctx tyT
@@ -496,12 +494,22 @@ and printtm_ATerm outer ctx t = match t with
   | t -> pr "("; printtm_Term outer ctx t; pr ")"
 
 let printtm ctx t = printtm_Term true ctx t 
+ *)
+let prpair a b = pr "(";
+                 pr (string_of_int a);
+                 pr ",";
+                 pr (string_of_int b);
+                 pr ")"
 
-let prbinding ctx b = match b with
-    NameBind -> ()
-  | TyVarBind -> ()
-  | VarBind(tyT) -> pr ": "; printty ctx tyT
-  | TmAbbBind(t,tyT) -> pr "= "; printtm ctx t
-  | TyAbbBind(tyT) -> pr "= "; printty ctx tyT 
+let rec prarrow l = match l with
+    [] -> ()
+  | (a,a')::[] -> prpair a a'
+  | (a,a')::ll -> prpair a a'; pr "->"; prarrow ll
+                                                
+let rec prbinding ctx b = match b with
+  | VarBind(i) -> pr (string_of_int i)
+  | ArrBind(l) -> match l with
+                    [] -> ()
+                  | a::ll -> prarrow a; pr ","; prbinding ctx (ArrBind(ll))
 
 

@@ -49,7 +49,7 @@ in
   Parsing.clear_parser(); close_in pi; result
 
 let alreadyImported = ref ([] : string list)
-
+(*
 let checkbinding fi ctx b = match b with
     NameBind -> NameBind
   | VarBind(tyT) -> VarBind(tyT)
@@ -70,7 +70,7 @@ let prbindingty ctx b = match b with
          None -> printty ctx (typeof ctx t)
        | Some(tyT) -> printty ctx tyT)
   | TyAbbBind(tyT) -> pr ":: *"
-
+ *)
 let prexp e = match e with
     VarExpr(s) -> pr s
   | NatExpr(i) -> pr (string_of_int i)
@@ -80,21 +80,13 @@ let rec process_command (ctx,store) cmd = match cmd with
   | Assign(fi,v,e) ->
      pr v; pr " := "; prexp e; force_newline(); (ctx,store)
   | While(fi,e,c) -> process_command (ctx,store) c
+  | If(fi,e,c,c') -> process_command (ctx,store) c
   | CmdList(fi,c::cs) -> process_command (ctx,store) c
-  | Eval(fi,t) -> 
-      let tyT = typeof ctx t in
-      let t',store  = eval ctx store t in
-      printtm_ATerm true ctx t'; 
-      print_break 1 2;
-      pr ": ";
-      printty ctx tyT;
-      force_newline();
-      (ctx,store)
   | Bind(fi,x,bind) -> 
-      let bind = checkbinding fi ctx bind in
-      let bind',store' = evalbinding ctx store bind in
-      pr x; pr " "; prbindingty ctx bind'; force_newline();
-      addbinding ctx x bind', (shiftstore 1 store')
+     (*      let bind = checkbinding fi ctx bind in 
+      let bind',store' = evalbinding ctx store bind in *)
+      pr x; pr " "; prbinding ctx bind; force_newline();
+      addbinding ctx x bind,emptystore
   
 let process_file f (ctx,store) =
   alreadyImported := f :: !alreadyImported;

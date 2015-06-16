@@ -48,14 +48,14 @@ type term =
   | TmPred of info * term
   | TmIsZero of info * term
   | TmInert of info * ty
-
+(*
 type binding =
     NameBind 
   | TyVarBind
   | VarBind of ty
   | TmAbbBind of term * (ty option)
   | TyAbbBind of ty
-(*
+
 type operator =
   | Add
   | Sub
@@ -67,12 +67,17 @@ type expression =
   | NatExpr of int
 (*  | BinOpExpr of operator * expression * expression *)
                 
+type arrowty = (int*int) list
+  
+type binding = 
+  | VarBind of int
+  | ArrBind of (arrowty list)
+
 type command =
   | Assign of info * string * expression
   | While of info * expression * command
   | If of info * expression * command * command
   | CmdList of info * (command list)
-  | Eval of info * term
   | Bind of info * string * binding
 
 (* Contexts *)
@@ -80,7 +85,8 @@ type context
 val emptycontext : context 
 val ctxlength : context -> int
 val addbinding : context -> string -> binding -> context
-val addname: context -> string -> context
+(* val addname: context -> string -> context *)
+(*
 val index2name : info -> context -> int -> string
 val getbinding : info -> context -> int -> binding
 val name2index : info -> context -> string -> int
@@ -98,8 +104,9 @@ val tytermSubstTop: ty -> term -> term
 val printtm: context -> term -> unit
 val printtm_ATerm: bool -> context -> term -> unit
 val printty : context -> ty -> unit
+ *)
 val prbinding : context -> binding -> unit
 
 (* Misc *)
-val tmInfo: term -> info
+(* val tmInfo: term -> info *)
 

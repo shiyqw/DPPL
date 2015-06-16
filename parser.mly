@@ -146,6 +146,22 @@ Command :
             let cmd = $6 ctx in 
             let cmd2 = $10 ctx in
             (If(dummyinfo, $3 ctx, cmd, cmd2), ctx) }
+  | LCID COLON VarBind SEMI
+      { fun ctx -> (Bind($1.i, $1.v, VarBind($3 ctx)),ctx) }
+  | LCID COLON OpBinds SEMI
+      { fun ctx -> (Bind($1.i, $1.v, ArrBind($3 ctx)),ctx) }
+
+VarBind : INTV { fun ctx -> $1.v }
+
+OpBinds :
+  | ABind { fun ctx -> ($1 ctx)::[] }
+  | ABind COMMA OpBinds { fun ctx -> ($1 ctx)::($3 ctx) }
+  
+ABind :
+  | Tier { fun ctx -> ($1 ctx)::[] }
+  | Tier ARROW ABind { fun ctx -> ($1 ctx)::($3 ctx) }
+  
+Tier : LPAREN INTV COMMA INTV RPAREN { fun ctx -> ($2.v,$4.v) }
 
 Commands :
   | Command { fun ctx -> let cmd,ctx = $1 ctx in CmdList(dummyinfo,cmd::[]) }

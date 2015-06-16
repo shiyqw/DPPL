@@ -34,12 +34,12 @@ let updatestore store n v =
     | _ -> error dummyinfo "updatestore: bad index"
   in
     f (n,store)
-let shiftstore i store = List.map (fun t -> termShift i t) store 
+(* let shiftstore i store = List.map (fun t -> termShift i t) store  *)
 
 exception NoRuleApplies
 
 let rec eval1 ctx store t = match t with
-    TmApp(fi,TmAbs(_,x,tyT11,t12),v2) when isval ctx v2 ->
+(*    TmApp(fi,TmAbs(_,x,tyT11,t12),v2) when isval ctx v2 ->
       termSubstTop v2 t12, store
   | TmApp(fi,v1,t2) when isval ctx v1 ->
       let t2',store' = eval1 ctx store t2 in
@@ -151,7 +151,7 @@ let rec eval1 ctx store t = match t with
       TmFalse(dummyinfo), store
   | TmIsZero(fi,t1) ->
       let t1',store' = eval1 ctx store t1 in
-      TmIsZero(fi, t1'), store'
+      TmIsZero(fi, t1'), store' *)
   | _ -> 
       raise NoRuleApplies
 
@@ -161,7 +161,7 @@ let rec eval ctx store t =
   with NoRuleApplies -> t,store
 
 (* ------------------------   SUBTYPING  ------------------------ *)
-
+(*
 let evalbinding ctx store b = match b with
     TmAbbBind(t,tyT) ->
       let t',store' = eval ctx store t in 
@@ -352,133 +352,9 @@ and meet ctx tyS tyT =
       TySink(join ctx tyT1 tyT2)
   | _ -> 
       TyBot
-
+ *)
 (* ------------------------   TYPING  ------------------------ *)
-
+(*
 let rec typeof ctx t =
   match t with
-    TmInert(fi,tyT) ->
-      tyT
-  | TmVar(fi,i,_) -> getTypeFromContext fi ctx i
-  | TmAbs(fi,x,tyT1,t2) ->
-      let ctx' = addbinding ctx x (VarBind(tyT1)) in
-      let tyT2 = typeof ctx' t2 in
-      TyArr(tyT1, typeShift (-1) tyT2)
-  | TmApp(fi,t1,t2) ->
-      let tyT1 = typeof ctx t1 in
-      let tyT2 = typeof ctx t2 in
-      (match simplifyty ctx tyT1 with
-          TyArr(tyT11,tyT12) ->
-            if subtype ctx tyT2 tyT11 then tyT12
-            else error fi "parameter type mismatch" 
-        | TyBot -> TyBot
-        | _ -> error fi "arrow type expected")
-  | TmTrue(fi) -> 
-      TyBool
-  | TmFalse(fi) -> 
-      TyBool
-  | TmIf(fi,t1,t2,t3) ->
-      if subtype ctx (typeof ctx t1) TyBool then
-        join ctx (typeof ctx t2) (typeof ctx t3)
-      else error fi "guard of conditional not a boolean"
-  | TmLet(fi,x,t1,t2) ->
-     let tyT1 = typeof ctx t1 in
-     let ctx' = addbinding ctx x (VarBind(tyT1)) in         
-     typeShift (-1) (typeof ctx' t2)
-  | TmRecord(fi, fields) ->
-      let fieldtys = 
-        List.map (fun (li,ti) -> (li, typeof ctx ti)) fields in
-      TyRecord(fieldtys)
-  | TmProj(fi, t1, l) ->
-      (match simplifyty ctx (typeof ctx t1) with
-          TyRecord(fieldtys) ->
-            (try List.assoc l fieldtys
-             with Not_found -> error fi ("label "^l^" not found"))
-        | TyBot -> TyBot
-        | _ -> error fi "Expected record type")
-  | TmCase(fi, t, cases) ->
-      (match simplifyty ctx (typeof ctx t) with
-         TyVariant(fieldtys) ->
-           List.iter
-             (fun (li,(xi,ti)) ->
-                try let _ = List.assoc li fieldtys in ()
-                with Not_found -> error fi ("label "^li^" not in type"))
-             cases;
-           let casetypes =
-             List.map (fun (li,(xi,ti)) ->
-                         let tyTi =
-                           try List.assoc li fieldtys
-                           with Not_found ->
-                             error fi ("label "^li^" not found") in
-                         let ctx' = addbinding ctx xi (VarBind(tyTi)) in
-                         typeShift (-1) (typeof ctx' ti))
-                      cases in
-           List.fold_left (join ctx) TyBot casetypes
-        | TyBot -> TyBot
-        | _ -> error fi "Expected variant type")
-  | TmFix(fi, t1) ->
-      let tyT1 = typeof ctx t1 in
-      (match simplifyty ctx tyT1 with
-           TyArr(tyT11,tyT12) ->
-             if subtype ctx tyT12 tyT11 then tyT12
-             else error fi "result of body not compatible with domain"
-         | TyBot -> TyBot
-         | _ -> error fi "arrow type expected")
-  | TmTag(fi, li, ti, tyT) ->
-      (match simplifyty ctx tyT with
-          TyVariant(fieldtys) ->
-            (try
-               let tyTiExpected = List.assoc li fieldtys in
-               let tyTi = typeof ctx ti in
-               if subtype ctx tyTi tyTiExpected
-                 then tyT
-                 else error fi "field does not have expected type"
-             with Not_found -> error fi ("label "^li^" not found"))
-        | _ -> error fi "Annotation is not a variant type")
-  | TmAscribe(fi,t1,tyT) ->
-     if subtype ctx (typeof ctx t1) tyT then
-       tyT
-     else
-       error fi "body of as-term does not have the expected type"
-  | TmString _ -> TyString
-  | TmUnit(fi) -> TyUnit
-  | TmRef(fi,t1) ->
-      TyRef(typeof ctx t1)
-  | TmLoc(fi,l) ->
-      error fi "locations are not supposed to occur in source programs!"
-  | TmDeref(fi,t1) ->
-      (match simplifyty ctx (typeof ctx t1) with
-          TyRef(tyT1) -> tyT1
-        | TyBot -> TyBot
-        | TySource(tyT1) -> tyT1
-        | _ -> error fi "argument of ! is not a Ref or Source")
-  | TmAssign(fi,t1,t2) ->
-      (match simplifyty ctx (typeof ctx t1) with
-          TyRef(tyT1) ->
-            if subtype ctx (typeof ctx t2) tyT1 then
-              TyUnit
-            else
-              error fi "arguments of := are incompatible"
-        | TyBot -> let _ = typeof ctx t2 in TyBot
-        |TySink(tyT1) ->
-            if subtype ctx (typeof ctx t2) tyT1 then
-              TyUnit
-            else
-              error fi "arguments of := are incompatible"
-        | _ -> error fi "argument of ! is not a Ref or Sink")
-  | TmFloat _ -> TyFloat
-  | TmTimesfloat(fi,t1,t2) ->
-      if subtype ctx (typeof ctx t1) TyFloat
-      && subtype ctx (typeof ctx t2) TyFloat then TyFloat
-      else error fi "argument of timesfloat is not a number"
-  | TmZero(fi) ->
-      TyNat
-  | TmSucc(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyNat
-      else error fi "argument of succ is not a number"
-  | TmPred(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyNat
-      else error fi "argument of pred is not a number"
-  | TmIsZero(fi,t1) ->
-      if subtype ctx (typeof ctx t1) TyNat then TyBool
-      else error fi "argument of iszero is not a number"
+ *)
