@@ -186,7 +186,7 @@ let rec typeofexp ctx e =
   | OpExpr(s,l) -> (let tyList = List.map (typeofexp ctx) l in
                     match getbinding ctx s with
                       ArrBind(bb) -> CmdBind(searchType bb tyList))
-  | NatExpr(i) -> CmdBind(1,0)
+  | NatExpr(i) -> CmdBind(0,0)
 
 let rec typeofcmd ctx t =
   match t with
