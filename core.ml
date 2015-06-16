@@ -162,11 +162,30 @@ let rec eval ctx store t =
 
 (* ------------------------   TYPING  ------------------------ *)
 
+(* given an (int*int) list, check if ty matches the first argument *)
+let matches arrowList ty =
+  let (a,b) = List.hd arrowList in
+  match ty with
+    VarBind(i) -> i==a && b<=a
+  | CmdBind(a',b') -> a==a' && b==b'
+  | _ -> raise NoRuleApplies
+  
+let rec searchType binds l =
+  if binds==[] then raise NoRuleApplies
+  else if l==[] then List.hd (List.hd binds)
+  else
+    searchType (List.map List.tl
+                         (List.filter (fun x->matches x (List.hd l)) binds))
+               (List.tl l)
+
+(* type of an expression, must be a pair (a,b) *)               
 let rec typeofexp ctx e =
   match e with
   | VarExpr(s) -> (match getbinding ctx s with
                      VarBind(i) -> CmdBind(i,0))
-  | OpExpr(s,l) -> CmdBind(1,0)
+  | OpExpr(s,l) -> (let tyList = List.map (typeofexp ctx) l in
+                    match getbinding ctx s with
+                      ArrBind(bb) -> CmdBind(searchType bb tyList))
   | NatExpr(i) -> CmdBind(1,0)
 
 let rec typeofcmd ctx t =
@@ -178,8 +197,29 @@ let rec typeofcmd ctx t =
     (match bind' with
        CmdBind(a,b) -> if a'<a then (CmdBind(a,b))
                        else raise NoRuleApplies))
-  | While(_,e,c) -> VarBind(0)
-  | If(_,e,c,c') -> VarBind(0)
-  | CmdList(_,cs) -> VarBind(0)
+  | While(_,e,c) -> (let te = match typeofexp ctx e with
+                         CmdBind(t1,t2) -> (t1,t2) in
+                     let tc = match typeofcmd ctx c with
+                         CmdBind(t1,t2) -> (t1,t2) in
+                     if (fst te==snd te && snd tc<fst tc) then
+                       CmdBind(tc)
+                     else raise NoRuleApplies)
+  | If(_,e,c,c') -> (let te = match typeofexp ctx e with
+                         CmdBind(t1,t2) -> (t1,t2) in
+                     let tc = match typeofcmd ctx c with
+                         CmdBind(t1,t2) -> (t1,t2) in
+                     let tc' = match typeofcmd ctx c' with
+                         CmdBind(t1,t2) -> (t1,t2) in
+                     if (tc==tc' && fst tc<=fst te) then
+                       CmdBind(tc)
+                     else raise NoRuleApplies)
+  | CmdList(_,cs) -> CmdBind(
+                         List.fold_left
+                           (fun (a,b) (c,d) -> (max a c, max b d))
+                           (0,0)
+                           (List.map (fun c->
+                                     match typeofcmd ctx c with
+                                       CmdBind(a,b)->(a,b))
+                                     cs))
   | _ -> raise NoRuleApplies
 
