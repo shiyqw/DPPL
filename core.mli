@@ -5,8 +5,10 @@
 
 open Syntax
 open Support.Error
+
+val typeofexp : context -> expression -> binding
+val typeofcmd : context -> command -> binding
 (*
-val typeof : context -> term -> ty
 val subtype : context -> ty -> ty -> bool
 val tyeqv : context -> ty -> ty -> bool
 val simplifyty : context -> ty -> ty *)

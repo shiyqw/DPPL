@@ -55,6 +55,7 @@ type arrowty = (int*int) list
 type binding = 
   | VarBind of int
   | ArrBind of (arrowty list)
+  | CmdBind of (int*int)
 
 type context = (string * binding) list
 
@@ -219,30 +220,19 @@ let rec tytermSubst tyS j t =
 
 let tytermSubstTop tyS t = 
   termShift (-1) (tytermSubst (typeShift 1 tyS) 0 t)
-
+ *)
 (* ---------------------------------------------------------------------- *)
 (* Context management (continued) *)
 
-let rec getbinding fi ctx i =
-  try
-    let (_,bind) = List.nth ctx i in
-    bindingshift (i+1) bind 
-  with Failure _ ->
-    let msg =
-      Printf.sprintf "Variable lookup failure: offset: %d, ctx size: %d" in
-    error fi (msg i (List.length ctx))
- let getTypeFromContext fi ctx i =
-   match getbinding fi ctx i with
-         VarBind(tyT) -> tyT
-     | TmAbbBind(_,Some(tyT)) -> tyT
-     | TmAbbBind(_,None) -> error fi ("No type recorded for variable "
-                                        ^ (index2name fi ctx i))
-     | _ -> error fi 
-       ("getTypeFromContext: Wrong kind of binding for variable " 
-         ^ (index2name fi ctx i)) 
+let rec getbinding ctx s =
+  match ctx with
+    [] -> raise Not_found
+  | (x,bind)::_ when s==x -> bind
+  | _::sx -> getbinding sx s
+                        
 (* ---------------------------------------------------------------------- *)
 (* Extracting file info *)
-
+(*
 let tmInfo t = match t with
     TmInert(fi,_) -> fi
   | TmVar(fi,_,_) -> fi

@@ -160,201 +160,26 @@ let rec eval ctx store t =
       in eval ctx store' t'
   with NoRuleApplies -> t,store
 
-(* ------------------------   SUBTYPING  ------------------------ *)
-(*
-let evalbinding ctx store b = match b with
-    TmAbbBind(t,tyT) ->
-      let t',store' = eval ctx store t in 
-      TmAbbBind(t',tyT), store'
-  | bind -> bind,store
-
-let istyabb ctx i = 
-  match getbinding dummyinfo ctx i with
-    TyAbbBind(tyT) -> true
-  | _ -> false
-
-let gettyabb ctx i = 
-  match getbinding dummyinfo ctx i with
-    TyAbbBind(tyT) -> tyT
-  | _ -> raise NoRuleApplies
-
-let rec computety ctx tyT = match tyT with
-    TyVar(i,_) when istyabb ctx i -> gettyabb ctx i
-  | _ -> raise NoRuleApplies
-
-let rec simplifyty ctx tyT =
-  try
-    let tyT' = computety ctx tyT in
-    simplifyty ctx tyT' 
-  with NoRuleApplies -> tyT
-
-let rec tyeqv ctx tyS tyT =
-  let tyS = simplifyty ctx tyS in
-  let tyT = simplifyty ctx tyT in
-  match (tyS,tyT) with
-    (TyTop,TyTop) -> true
-  | (TyBot,TyBot) -> true
-  | (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
-       (tyeqv ctx tyS1 tyT1) && (tyeqv ctx tyS2 tyT2)
-  | (TyString,TyString) -> true
-  | (TyId(b1),TyId(b2)) -> b1=b2
-  | (TyFloat,TyFloat) -> true
-  | (TyUnit,TyUnit) -> true
-  | (TyRef(tyT1),TyRef(tyT2)) -> tyeqv ctx tyT1 tyT2
-  | (TySource(tyT1),TySource(tyT2)) -> tyeqv ctx tyT1 tyT2
-  | (TySink(tyT1),TySink(tyT2)) -> tyeqv ctx tyT1 tyT2
-  | (TyVar(i,_), _) when istyabb ctx i ->
-      tyeqv ctx (gettyabb ctx i) tyT
-  | (_, TyVar(i,_)) when istyabb ctx i ->
-      tyeqv ctx tyS (gettyabb ctx i)
-  | (TyVar(i,_),TyVar(j,_)) -> i=j
-  | (TyBool,TyBool) -> true
-  | (TyNat,TyNat) -> true
-  | (TyRecord(fields1),TyRecord(fields2)) -> 
-       List.length fields1 = List.length fields2
-       &&                                         
-       List.for_all 
-         (fun (li2,tyTi2) ->
-            try let (tyTi1) = List.assoc li2 fields1 in
-                tyeqv ctx tyTi1 tyTi2
-            with Not_found -> false)
-         fields2
-  | (TyVariant(fields1),TyVariant(fields2)) ->
-       (List.length fields1 = List.length fields2)
-       && List.for_all2
-            (fun (li1,tyTi1) (li2,tyTi2) ->
-               (li1=li2) && tyeqv ctx tyTi1 tyTi2)
-            fields1 fields2
-  | _ -> false
-
-let rec subtype ctx tyS tyT =
-   tyeqv ctx tyS tyT ||
-   let tyS = simplifyty ctx tyS in
-   let tyT = simplifyty ctx tyT in
-   match (tyS,tyT) with
-     (_,TyTop) -> 
-       true
-   | (TyBot,_) -> 
-       true
-   | (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
-       (subtype ctx tyT1 tyS1) && (subtype ctx tyS2 tyT2)
-   | (TyRecord(fS), TyRecord(fT)) ->
-       List.for_all
-         (fun (li,tyTi) -> 
-            try let tySi = List.assoc li fS in
-                subtype ctx tySi tyTi
-            with Not_found -> false)
-         fT
-   | (TyVariant(fS), TyVariant(fT)) ->
-       List.for_all
-         (fun (li,tySi) -> 
-            try let tyTi = List.assoc li fT in
-                subtype ctx tySi tyTi
-            with Not_found -> false)
-         fS
-   | (TyRef(tyT1),TyRef(tyT2)) ->
-       subtype ctx tyT1 tyT2 && subtype ctx tyT2 tyT1
-   | (TyRef(tyT1),TySource(tyT2)) ->
-       subtype ctx tyT1 tyT2
-   | (TySource(tyT1),TySource(tyT2)) ->
-       subtype ctx tyT1 tyT2
-   | (TyRef(tyT1),TySink(tyT2)) ->
-       subtype ctx tyT2 tyT1
-   | (TySink(tyT1),TySink(tyT2)) ->
-       subtype ctx tyT2 tyT1
-   | (_,_) -> 
-       false
-
-let rec join ctx tyS tyT =
-  if subtype ctx tyS tyT then tyT else 
-  if subtype ctx tyT tyS then tyS else
-  let tyS = simplifyty ctx tyS in
-  let tyT = simplifyty ctx tyT in
-  match (tyS,tyT) with
-    (TyRecord(fS), TyRecord(fT)) ->
-      let labelsS = List.map (fun (li,_) -> li) fS in
-      let labelsT = List.map (fun (li,_) -> li) fT in
-      let commonLabels = 
-        List.find_all (fun l -> List.mem l labelsT) labelsS in
-      let commonFields = 
-        List.map (fun li -> 
-                    let tySi = List.assoc li fS in
-                    let tyTi = List.assoc li fT in
-                    (li, join ctx tySi tyTi))
-                 commonLabels in
-      TyRecord(commonFields)
-  | (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
-      TyArr(meet ctx  tyS1 tyT1, join ctx tyS2 tyT2)
-  | (TyRef(tyT1),TyRef(tyT2)) ->
-      if subtype ctx tyT1 tyT2 && subtype ctx tyT2 tyT1 
-        then TyRef(tyT1)
-        else (* Warning: this is incomplete... *)
-             TySource(join ctx tyT1 tyT2)
-  | (TySource(tyT1),TySource(tyT2)) ->
-      TySource(join ctx tyT1 tyT2)
-  | (TyRef(tyT1),TySource(tyT2)) ->
-      TySource(join ctx tyT1 tyT2)
-  | (TySource(tyT1),TyRef(tyT2)) ->
-      TySource(join ctx tyT1 tyT2)
-  | (TySink(tyT1),TySink(tyT2)) ->
-      TySink(meet ctx tyT1 tyT2)
-  | (TyRef(tyT1),TySink(tyT2)) ->
-      TySink(meet ctx tyT1 tyT2)
-  | (TySink(tyT1),TyRef(tyT2)) ->
-      TySink(meet ctx tyT1 tyT2)
-  | _ -> 
-      TyTop
-
-and meet ctx tyS tyT =
-  if subtype ctx tyS tyT then tyS else 
-  if subtype ctx tyT tyS then tyT else 
-  let tyS = simplifyty ctx tyS in
-  let tyT = simplifyty ctx tyT in
-  match (tyS,tyT) with
-    (TyRecord(fS), TyRecord(fT)) ->
-      let labelsS = List.map (fun (li,_) -> li) fS in
-      let labelsT = List.map (fun (li,_) -> li) fT in
-      let allLabels = 
-        List.append
-          labelsS 
-          (List.find_all 
-            (fun l -> not (List.mem l labelsS)) labelsT) in
-      let allFields = 
-        List.map (fun li -> 
-                    if List.mem li allLabels then
-                      let tySi = List.assoc li fS in
-                      let tyTi = List.assoc li fT in
-                      (li, meet ctx tySi tyTi)
-                    else if List.mem li labelsS then
-                      (li, List.assoc li fS)
-                    else
-                      (li, List.assoc li fT))
-                 allLabels in
-      TyRecord(allFields)
-  | (TyArr(tyS1,tyS2),TyArr(tyT1,tyT2)) ->
-      TyArr(join ctx tyS1 tyT1, meet ctx tyS2 tyT2)
-  | (TyRef(tyT1),TyRef(tyT2)) ->
-      if subtype ctx tyT1 tyT2 && subtype ctx tyT2 tyT1 
-        then TyRef(tyT1)
-        else (* Warning: this is incomplete... *)
-             TySource(meet ctx tyT1 tyT2)
-  | (TySource(tyT1),TySource(tyT2)) ->
-      TySource(meet ctx tyT1 tyT2)
-  | (TyRef(tyT1),TySource(tyT2)) ->
-      TySource(meet ctx tyT1 tyT2)
-  | (TySource(tyT1),TyRef(tyT2)) ->
-      TySource(meet ctx tyT1 tyT2)
-  | (TySink(tyT1),TySink(tyT2)) ->
-      TySink(join ctx tyT1 tyT2)
-  | (TyRef(tyT1),TySink(tyT2)) ->
-      TySink(join ctx tyT1 tyT2)
-  | (TySink(tyT1),TyRef(tyT2)) ->
-      TySink(join ctx tyT1 tyT2)
-  | _ -> 
-      TyBot
- *)
 (* ------------------------   TYPING  ------------------------ *)
-(*
-let rec typeof ctx t =
+
+let rec typeofexp ctx e =
+  match e with
+  | VarExpr(s) -> (match getbinding ctx s with
+                     VarBind(i) -> CmdBind(i,0))
+  | OpExpr(s,l) -> CmdBind(1,0)
+  | NatExpr(i) -> CmdBind(1,0)
+
+let rec typeofcmd ctx t =
   match t with
- *)
+  | Assign(_,v,e) -> (
+    let a' = (match getbinding ctx v with
+                VarBind(i) -> i ) in
+    let bind' = typeofexp ctx e in
+    (match bind' with
+       CmdBind(a,b) -> if a'<a then (CmdBind(a,b))
+                       else raise NoRuleApplies))
+  | While(_,e,c) -> VarBind(0)
+  | If(_,e,c,c') -> VarBind(0)
+  | CmdList(_,cs) -> VarBind(0)
+  | _ -> raise NoRuleApplies
+

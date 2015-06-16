@@ -72,6 +72,7 @@ type arrowty = (int*int) list
 type binding = 
   | VarBind of int
   | ArrBind of (arrowty list)
+  | CmdBind of (int*int)
 
 type command =
   | Assign of info * string * expression
@@ -88,7 +89,9 @@ val addbinding : context -> string -> binding -> context
 (* val addname: context -> string -> context *)
 (*
 val index2name : info -> context -> int -> string
-val getbinding : info -> context -> int -> binding
+ *)
+val getbinding : context -> string -> binding
+(*
 val name2index : info -> context -> string -> int
 val isnamebound : context -> string -> bool
 val getTypeFromContext : info -> context -> int -> ty
