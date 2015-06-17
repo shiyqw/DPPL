@@ -71,22 +71,33 @@ let prbindingty ctx b = match b with
        | Some(tyT) -> printty ctx tyT)
   | TyAbbBind(tyT) -> pr ":: *"
  *)
-let prexp e = match e with
+let rec prexp e = match e with
     VarExpr(s) -> pr s
   | NatExpr(i) -> pr (string_of_int i)
-  | OpExpr(o,l) -> pr o; pr "("; pr ")"
+  | OpExpr(o,l) -> pr o; pr "(";
+                   List.map (fun x->prexp x; pr " ") l;
+                   pr ")"
                                     
 let rec process_command (ctx,store) cmd = match cmd with
   | Assign(fi,v,e) ->
      pr v; pr " := "; prexp e; force_newline(); (ctx,store)
-  | While(fi,e,c) -> process_command (ctx,store) c
-  | If(fi,e,c,c') -> process_command (ctx,store) c
-  | CmdList(fi,c::cs) -> process_command (ctx,store) c
+  | While(fi,e,c) -> pr "while ("; prexp e; pr ") {"; force_newline ();
+                     let ctx',store' = process_command (ctx,store) c in
+                     pr "}"; force_newline (); (ctx',store')
+  | If(fi,e,c,c') -> pr "if ("; prexp e; pr ") {"; force_newline ();
+                     process_command (ctx,store) c;
+                     pr "} else {"; force_newline ();
+                     process_command (ctx,store) c;
+                     pr "}"; force_newline ();
+                     (ctx,store)
+  | CmdList(fi,c::cs) -> let ctx',store' = process_command (ctx,store) c in
+                         if (cs!=[]) then process_command (ctx',store') (CmdList(fi,cs))
+                         else (ctx',store')
   | Bind(fi,x,bind) -> 
      (*      let bind = checkbinding fi ctx bind in 
       let bind',store' = evalbinding ctx store bind in *)
       pr x; pr " "; prbinding ctx bind; force_newline();
-      addbinding ctx x bind,emptystore
+      addbinding ctx x bind,store
   
 let process_file f (ctx,store) =
   alreadyImported := f :: !alreadyImported;
