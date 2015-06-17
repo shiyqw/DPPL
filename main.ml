@@ -77,18 +77,27 @@ let rec prexp e = match e with
   | OpExpr(o,l) -> pr o; pr "(";
                    List.map (fun x->prexp x; pr " ") l;
                    pr ")"
-                                    
+
+let prty binding = match binding with
+    CmdBind(a,b) -> (pr "("; pr (string_of_int a);
+                     pr ","; pr (string_of_int b);
+                     pr ")";)
+                 
 let rec process_command (ctx,store) cmd = match cmd with
   | Assign(fi,v,e) ->
-     pr v; pr " := "; prexp e; force_newline(); (ctx,store)
+     pr v; pr " := "; prexp e; pr ";";
+     pr " :"; prty (typeofcmd ctx cmd); force_newline ();
+     (ctx,store)
   | While(fi,e,c) -> pr "while ("; prexp e; pr ") {"; force_newline ();
                      let ctx',store' = process_command (ctx,store) c in
-                     pr "}"; force_newline (); (ctx',store')
+                     pr "}"; pr " :"; prty (typeofcmd ctx cmd);
+                     force_newline ();
+                     (ctx',store')
   | If(fi,e,c,c') -> pr "if ("; prexp e; pr ") {"; force_newline ();
                      process_command (ctx,store) c;
                      pr "} else {"; force_newline ();
-                     process_command (ctx,store) c;
-                     pr "}"; force_newline ();
+                     process_command (ctx,store) c';
+                     pr "}"; prty (typeofcmd ctx cmd); force_newline ();
                      (ctx,store)
   | CmdList(fi,c::cs) -> let ctx',store' = process_command (ctx,store) c in
                          if (cs!=[]) then process_command (ctx',store') (CmdList(fi,cs))
