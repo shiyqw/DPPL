@@ -19,8 +19,8 @@ let reservedWords = [
   ("while", fun i -> Parser.WHILE i);
   ("then", fun i -> Parser.THEN i);
   ("else", fun i -> Parser.ELSE i);
-  ("true", fun i -> Parser.TRUE i);
-  ("false", fun i -> Parser.FALSE i);
+(*  ("true", fun i -> Parser.TRUE i);
+  ("false", fun i -> Parser.FALSE i); *)
   ("Bool", fun i -> Parser.BOOL i);
   ("Bot", fun i -> Parser.TBOT i);
   ("let", fun i -> Parser.LET i);
