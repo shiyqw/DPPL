@@ -102,7 +102,7 @@ let rec typeofcmd ctx t =
                          CmdBind(t1,t2) -> (t1,t2) in
                      let tc' = match typeofcmd ctx c' with
                          CmdBind(t1,t2) -> (t1,t2) in
-                     if (tc==tc' && fst tc<=fst te) then
+                     if (tc=tc' && fst tc<=fst te) then
                        CmdBind(tc)
                      else raise NoRuleApplies)
   | CmdList(_,cs) -> CmdBind(
