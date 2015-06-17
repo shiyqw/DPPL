@@ -4,7 +4,7 @@ greater_than_zero: (0,0)->(0,0), (1,0)->(1,0), (1,1)->(1,1);
 x: 1;
 y: 0;
 
-while (greater(x,0)) {
+while (greater_than_zero(x)) {
     x = pred(x);
     y = succ(y);
 }
