@@ -69,7 +69,9 @@ let rec searchType binds l =
 let rec typeofexp ctx e =
   match e with
   | VarExpr(s) -> (match getbinding ctx s with
-                     VarBind(i) -> CmdBind(i,0))
+                     VarBind(i) -> CmdBind(i,0)
+                   | CmdBind(a,b) -> CmdBind(a,b)
+                   | ArrBind(bb) -> CmdBind(List.hd (List.hd bb)))
   | OpExpr(s,l) -> (let tyList = List.map (typeofexp ctx) l in
                     match getbinding ctx s with
                       ArrBind(bb) -> CmdBind(searchType bb tyList))
@@ -90,9 +92,10 @@ let rec typeofcmd ctx t =
                          CmdBind(t1,t2) -> (t1,t2) in
                      let tc = match typeofcmd ctx c with
                          CmdBind(t1,t2) -> (t1,t2) in
-                     if (fst te==snd te && snd tc<fst tc) then
+                     if (fst te==fst tc && snd tc<fst tc) then
                        CmdBind(tc)
-                     else raise NoRuleApplies)
+                     else 
+                     raise NoRuleApplies)
   | If(_,e,c,c') -> (let te = match typeofexp ctx e with
                          CmdBind(t1,t2) -> (t1,t2) in
                      let tc = match typeofcmd ctx c with
