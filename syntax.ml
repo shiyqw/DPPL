@@ -227,7 +227,7 @@ let tytermSubstTop tyS t =
 let rec getbinding ctx s =
   match ctx with
     [] -> raise Not_found
-  | (x,bind)::_ when s==x -> bind
+  | (x,bind)::_ when s=x -> bind
   | _::sx -> getbinding sx s
                         
 (* ---------------------------------------------------------------------- *)
